@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>claudemanager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <section id="manager-card">
+      <div class="mc-head">
+        <span class="mc-label">MANAGER</span>
+        <span id="mc-state" class="badge"></span>
+        <button id="mc-settings" class="mc-gear" title="Réglages de l'équipe">⚙</button>
+      </div>
+      <div id="mc-sub" class="small"></div>
+      <div class="mc-actions">
+        <button id="mc-open" class="primary">Parler au manager</button>
+        <button id="mc-toggle"></button>
+        <button id="mc-perms" title="Autorisations demandées par les agents">Autorisations</button>
+        <button id="mc-tick" title="Planificateur : contrôle régulier du manager">Planificateur</button>
+        <button id="mc-rules" title="Pause / reprise de toutes les règles automatiques">Règles</button>
+        <button id="mc-stop" title="Arrêter le manager">Arrêter</button>
+      </div>
+      <div id="mc-error" class="mc-error small" hidden></div>
+    </section>
+    <div class="side-top">
+      <input id="search" type="search" placeholder="Rechercher une session…" autocomplete="off">
+      <select id="project-filter" title="Filtrer par dossier"></select>
+      <div class="side-actions">
+        <button id="btn-new" class="primary">+ Nouvelle session</button>
+        <label class="check" title="Ajoute --dangerously-skip-permissions au lancement">
+          <input type="checkbox" id="skip-perms"> sans confirmations
+        </label>
+      </div>
+      <div class="row2"><div id="count" class="muted small"></div>
+        <label class="check">Thème <select id="theme-select" title="Clair, sombre, ou suivre le système"><option value="system">Système</option><option value="light">Clair</option><option value="dark">Sombre</option></select></label></div>
+    </div>
+    <ul id="session-list"></ul>
+  </aside>
+
+  <main id="main">
+    <div id="empty" class="empty">Choisis une session à gauche pour afficher son chat.</div>
+    <section id="chat" hidden>
+      <header id="chat-head">
+        <div class="head-info">
+          <div class="title-row">
+            <h1 id="chat-title"></h1>
+            <div id="swatches" class="swatches" title="Couleur de la session"></div>
+          </div>
+          <div id="chat-meta" class="muted small"></div>
+          <details id="spec" hidden>
+            <summary id="spec-sum"></summary>
+            <pre id="spec-body"></pre>
+          </details>
+        </div>
+        <div class="head-actions">
+          <input id="chat-search" type="search" placeholder="Chercher dans le chat…" autocomplete="off">
+          <label class="check"><input type="checkbox" id="show-tools" checked> outils</label>
+          <label class="check"><input type="checkbox" id="show-meta"> système</label>
+          <select id="effort-select" title="Effort de réflexion de cette session"></select>
+          <button id="btn-rules" title="Règles « SI … ALORS … » de cet agent">Règles</button>
+          <button id="btn-cli" title="Toutes les options de la CLI Claude Code et leur état pour cette session">Options</button>
+          <button id="btn-adopt" class="team-btn" title="Rattacher cette session à l'équipe du manager">Ajouter à l'équipe</button>
+          <button id="btn-leave" title="Retirer cette session de l'équipe">Retirer de l'équipe</button>
+          <button id="btn-rename" title="Renommer cette session">Renommer</button>
+          <button id="btn-copy" title="Copier l'identifiant de session">Copier l'id</button>
+          <button id="btn-agent-stop" title="Arrêter cette session (elle tourne en arrière-plan)">Arrêter</button>
+          <button id="btn-delete" class="danger" title="Mettre la session à la corbeille">Supprimer</button>
+        </div>
+      </header>
+      <div id="messages"></div>
+      <button id="btn-bottom" hidden>↓ Nouveaux messages</button>
+      <div id="perm-banner" hidden></div>
+      <div id="queue-panel" hidden></div>
+      <form id="composer" autocomplete="off">
+        <div id="composer-status" class="small" hidden></div>
+        <div class="composer-row">
+          <textarea id="reply-input" rows="1" placeholder="Répondre à Claude…"></textarea>
+          <label class="check" title="Livré tout de suite, sans attendre la fin du travail en cours"><input type="checkbox" id="urgent"> urgent</label>
+          <button id="btn-send" type="submit" class="primary">Envoyer</button>
+          <button id="btn-stop" type="button" class="danger" hidden>Arrêter</button>
+        </div>
+        <div id="composer-hint" class="small muted"></div>
+      </form>
+    </section>
+    <div id="toast" hidden></div>
+  </main>
+
+  <dialog id="new-dialog">
+    <form id="new-form" autocomplete="off">
+      <h2>Nouvelle session</h2>
+      <div class="grid2">
+        <label>Type
+          <select id="nf-kind">
+            <option value="worker">Worker : une tâche, parle uniquement au manager</option>
+            <option value="solo">Session simple (hors équipe)</option>
+          </select>
+        </label>
+        <label>Nom (son adresse pour les autres sessions)
+          <input id="nf-name" placeholder="ex : api-auth" maxlength="40">
+        </label>
+      </div>
+      <label>Dossier de travail
+        <span class="inline"><input id="nf-cwd" readonly><button type="button" id="nf-browse">Parcourir…</button></span>
+      </label>
+      <label>Modèle de rôle
+        <span class="inline">
+          <select id="nf-template"></select>
+          <button type="button" id="nf-del-tpl" class="danger">Supprimer</button>
+        </span>
+      </label>
+      <label><span>Rôle et limites <span class="muted">(ajouté au prompt système)</span></span>
+        <textarea id="nf-role" rows="4" placeholder="Ce que cette session doit faire, et ce qu'elle ne doit pas faire…"></textarea>
+      </label>
+      <span class="inline tpl-save">
+        <input id="nf-tpl-name" placeholder="Nom du modèle" maxlength="60">
+        <button type="button" id="nf-save-tpl">Enregistrer ce rôle comme modèle</button>
+      </span>
+      <label>Effort de réflexion
+        <select id="nf-effort"></select>
+      </label>
+      <label><span>Tâche de départ <span class="muted">(premier message envoyé)</span></span>
+        <textarea id="nf-task" rows="3" placeholder="La mission de cette session…"></textarea>
+      </label>
+      <div id="nf-team-note" class="muted small">Aucune fenêtre ne s'ouvre : la session tourne en arrière-plan avec les permissions de l'équipe (réglables avec ⚙ sur la carte du manager). Tu lui écris depuis l'application. Un worker ne peut écrire qu'au manager.</div>
+      <div id="nf-error" class="form-error" hidden></div>
+      <div class="actions">
+        <button type="button" id="nf-cancel">Annuler</button>
+        <button type="submit" id="nf-submit" class="primary">Démarrer en arrière-plan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="adopt-dialog">
+    <form id="adopt-form" autocomplete="off">
+      <h2>Ajouter à l'équipe</h2>
+      <label>Nom dans l'équipe <span class="muted">(son adresse, lettres, chiffres, . _ -)</span>
+        <input id="ad-name" maxlength="40">
+      </label>
+      <label>Rôle <span class="muted">(facultatif, ajouté à son prompt à sa prochaine ouverture)</span>
+        <textarea id="ad-role" rows="3" placeholder="Ce que cette session fait pour l'équipe…"></textarea>
+      </label>
+      <div id="ad-note" class="muted small"></div>
+      <div id="ad-error" class="form-error" hidden></div>
+      <div class="actions">
+        <button type="button" id="ad-cancel">Annuler</button>
+        <button type="submit" class="primary">Ajouter à l'équipe</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="perm-dialog">
+    <div id="perm-box">
+      <h2>Autorisations des agents</h2>
+      <div class="muted small">Un agent qui se voit refuser une action ou qui demande une autorisation apparaît ici et sur sa session. Tu décides ; le manager ne peut accorder que ce que tu as activé dans les réglages (⚙).</div>
+      <h3>En attente</h3><div id="pm-alerts"></div>
+      <h3>Autorisations accordées <span class="muted small">(révocables en un clic)</span></h3><div id="pm-grants"></div>
+      <h3>Journal</h3><div id="pm-log"></div>
+      <div class="actions"><button type="button" id="pm-close">Fermer</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="tick-dialog">
+    <div id="tick-box">
+      <h2>Planificateur du manager</h2>
+      <div class="muted small">Toutes les N minutes, l'appli envoie le texte ci-dessous au manager (par la file d'attente : jamais pendant qu'il travaille, jamais deux en attente). Un tick est sauté si rien n'a changé et qu'aucun agent n'est au repos.</div>
+      <label class="check-row"><input type="checkbox" id="tk-on"> Planificateur actif</label>
+      <div class="grid2">
+        <label>Intervalle (minutes) <input id="tk-min" type="number" min="1" max="120"></label>
+        <label>Arrêt après N réponses « rien à faire » <input id="tk-stop" type="number" min="1" max="20"></label>
+      </div>
+      <label class="check-row"><input type="checkbox" id="tk-block"> Se mettre en pause quand un agent attend une autorisation (alerte à la place)</label>
+      <label>Texte du tick <span class="muted">({heure} est remplacé)</span><textarea id="tk-text" rows="7"></textarea></label>
+      <div id="tk-info" class="small"></div>
+      <div id="tk-error" class="form-error" hidden></div>
+      <h3>Journal des ticks</h3><div id="tk-log"></div>
+      <div class="actions"><button type="button" id="tk-now">Tick maintenant</button><button type="button" id="tk-close">Fermer</button><button type="button" id="tk-save" class="primary">Enregistrer</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="when-dialog">
+    <div id="when-box">
+      <h2 id="wh-title">Cet agent travaille</h2>
+      <div class="muted">Le changement demande de redémarrer l'agent (même conversation). S'il est en plein travail, ce travail serait interrompu.</div>
+      <div class="actions"><button type="button" id="wh-cancel">Plus tard</button><button type="button" id="wh-after" class="primary">Appliquer après sa tâche</button><button type="button" id="wh-now" class="danger">Appliquer maintenant (interrompt)</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="rules-dialog">
+    <div id="rules-box">
+      <h2>Règles <span id="ru-agent" class="muted small"></span></h2>
+      <div class="muted small">SI un agent… ALORS l'application agit, sans passer par le contexte du manager (qui reçoit une copie et peut tout arrêter). Chaque règle a un maximum de déclenchements.</div>
+      <div class="ru-top"><span id="ru-state" class="small"></span><button type="button" id="ru-pause"></button></div>
+      <div id="ru-list"></div>
+      <form id="ru-form" autocomplete="off">
+        <h3>Nouvelle règle pour cet agent</h3>
+        <div class="grid2">
+          <label>SI cet agent…
+            <select id="ru-ttype"><option value="message">envoie un message</option><option value="idle">devient au repos</option><option value="error">rencontre une erreur</option></select>
+          </label>
+          <label id="ru-mrow">… qui
+            <select id="ru-tmode"><option value="startsWith">commence par</option><option value="contains">contient</option><option value="regex">correspond à (regex)</option></select>
+          </label>
+        </div>
+        <label id="ru-trow">Texte <input id="ru-ttext" placeholder="ex : [linkedin-collecteur] OFFRE (vide = n'importe quel message)"></label>
+        <div class="grid2">
+          <label>ALORS
+            <select id="ru-atype"><option value="send">envoyer un message à…</option><option value="notify">prévenir l'utilisateur</option><option value="pause">tout mettre en pause</option></select>
+          </label>
+          <label id="ru-torow">… cet agent <select id="ru-ato"></select></label>
+        </div>
+        <label id="ru-tplrow">Message <span class="muted">(variables : {message} {agent} {to})</span>
+          <textarea id="ru-atpl" rows="2" placeholder="ex : Postule à cette offre : {message}"></textarea>
+        </label>
+        <label>Maximum de déclenchements <span class="muted">(obligatoire, arrête la boucle)</span> <input id="ru-max" type="number" min="1" max="1000" value="20"></label>
+        <div id="ru-error" class="form-error" hidden></div>
+        <button type="submit" class="primary">Ajouter la règle</button>
+      </form>
+      <h3>Journal des règles</h3>
+      <div id="ru-log"></div>
+      <div class="actions"><button type="button" id="ru-close">Fermer</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="cli-dialog">
+    <div id="cli-box">
+      <h2>Options de Claude Code <span id="cli-sess" class="muted small"></span></h2>
+      <div class="muted small">Lues depuis <code>claude --help</code> (toujours à jour). Modifiables depuis l'appli : <span id="cli-edit"></span>. Les slash-commands (/model, /compact…) s'utilisent dans une session interactive et ne figurent pas dans la CLI.</div>
+      <input id="cli-filter" type="search" placeholder="Filtrer (ex. chrome, model, permission)…">
+      <div id="cli-list"></div>
+      <div class="actions"><button type="button" id="cli-close">Fermer</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="rename-dialog">
+    <form id="rename-form" autocomplete="off">
+      <h2>Renommer la session</h2>
+      <label><span id="rn-label"></span>
+        <input id="rn-name" maxlength="80">
+      </label>
+      <div id="rn-note" class="muted small"></div>
+      <div id="rn-error" class="form-error" hidden></div>
+      <div class="actions">
+        <button type="button" id="rn-cancel">Annuler</button>
+        <button type="submit" class="primary">Renommer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog">
+    <form id="settings-form" autocomplete="off">
+      <h2>Réglages de l'équipe</h2>
+      <label>Permissions des workers
+        <select id="st-mode">
+          <option value="acceptEdits">Accepter les modifications de fichiers (recommandé)</option>
+          <option value="auto">Automatique (auto)</option>
+          <option value="bypass">Sans confirmations (--dangerously-skip-permissions)</option>
+          <option value="standard">Standard (le manager ne pourra rien valider : déconseillé)</option>
+        </select>
+        <span class="muted small">Le manager, lui, a toujours tous les droits (sans confirmation ni limite). Attention : un message du manager vers un worker dont le mode est différent est retenu jusqu'à ce que tu l'approuves dans le terminal du worker. Pour des échanges automatiques, choisis « sans confirmations ». S'applique aux workers ouverts ensuite.</span>
+      </label>
+      <div class="grid2">
+        <label>Effort de réflexion du manager <span class="muted">(par défaut)</span>
+          <select id="st-effort-manager"></select>
+        </label>
+        <label>Effort de réflexion des workers <span class="muted">(par défaut)</span>
+          <select id="st-effort-worker"></select>
+        </label>
+      </div>
+      <label class="check-row"><input type="checkbox" id="st-grant"> Le manager peut accorder des autorisations aux agents</label>
+      <label>Catégories que le manager peut accorder <span class="muted">(noms d'outils, ex. Bash, Write, ou motifs de refus ; séparés par des virgules)</span>
+        <input id="st-grant-cats" placeholder="vide = aucune">
+      </label>
+      <div class="muted small">Désactivé par défaut. Seul toi peux l'activer ici ; le manager ne peut ni le changer, ni accorder « pour toujours », ni s'accorder quoi que ce soit.</div>
+      <label class="check-row"><input type="checkbox" id="st-autostart"> Lancer le manager au démarrage de l'application</label>
+      <label class="check-row"><input type="checkbox" id="st-follow"> Rouvrir au démarrage les workers qui étaient ouverts à la fermeture</label>
+      <div class="grid2">
+        <label>Workers ouverts en même temps <span class="muted">(0 = illimité)</span>
+          <input id="st-max" type="number" min="0" max="50">
+        </label>
+        <label>Modèle du manager <span class="muted">(vide = par défaut)</span>
+          <input id="st-model" placeholder="ex : sonnet" maxlength="60">
+        </label>
+      </div>
+      <div id="st-error" class="form-error" hidden></div>
+      <div class="actions">
+        <button type="button" id="st-cancel">Annuler</button>
+        <button type="submit" class="primary">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

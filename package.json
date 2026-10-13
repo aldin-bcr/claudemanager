@@ -1,0 +1,40 @@
+{
+  "name": "claude-sessions",
+  "version": "0.1.0",
+  "description": "Gestionnaire de sessions Claude Code (liste, chat, reprise, suivi en direct)",
+  "main": "main.js",
+  "desktopName": "claude-sessions.desktop",
+  "author": "local",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "test:data": "node src/selftest.js",
+    "build": "electron-builder --linux dir AppImage"
+  },
+  "build": {
+    "appId": "local.claude.sessions",
+    "productName": "claudemanager",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**",
+      "renderer/**",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development",
+      "executableArgs": [
+        "--no-sandbox"
+      ]
+    },
+    "afterPack": "scripts/afterPack.js"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  }
+}
